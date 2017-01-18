@@ -7,5 +7,5 @@ import java.util.concurrent.ScheduledExecutorService;
 
 @Component
 public class QueueRunner {
-    private static final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
+    private static final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
 }

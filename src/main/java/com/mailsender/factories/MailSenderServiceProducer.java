@@ -17,7 +17,7 @@ public class MailSenderServiceProducer {
     }
 
     public MailSenderService getMailSenderService(AppType appType) {
-        if (appType == AppType.ROMCHARM) {
+        if (appType.equals(AppType.ROMCHARM)) {
             return new RomCharmMailService(mailSenderProducer.mailSender());
         } else {
             throw new IllegalArgumentException("Application type not recognised");

@@ -15,38 +15,50 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 
 @Component
-public class QueueProcessor implements Callable<CompletableFuture<Boolean>> {
+public class QueueProcessor implements Callable<Void> {
     private static final Logger logger = LoggerFactory.getLogger(QueueProcessor.class);
 
     private final AmazonSQSAsyncClient amazonSQSAsyncClient;
 
-    @Value("${AWS_SQS_QUEUE_ARN}")
-    private String queueARN;
+    private final MessageProcessor messageProcessor;
+
+    private final MessageDeleter messageDeleter;
+
+    @Value("${AWS_SQS_QUEUE_URL}")
+    private String queueURL;
 
     @Autowired
-    public QueueProcessor(AmazonSQSAsyncClient client) {
+    public QueueProcessor(AmazonSQSAsyncClient client, MessageProcessor messageProcessor, MessageDeleter messageDeleter) {
         amazonSQSAsyncClient = client;
+        this.messageProcessor = messageProcessor;
+        this.messageDeleter = messageDeleter;
     }
 
     @Override
-    public CompletableFuture<Boolean> call() throws Exception {
-        ReceiveMessageRequest request = new ReceiveMessageRequest(queueARN);
+    public Void call() throws Exception {
+        ReceiveMessageRequest request = new ReceiveMessageRequest(queueURL);
         request.setMaxNumberOfMessages(5);
         CompletableFuture<Optional<ReceiveMessageResult>> futureMessages = new CompletableFuture<>();
 
         amazonSQSAsyncClient.receiveMessageAsync(request, asyncMessagesReceiveHandler(futureMessages));
 
-        futureMessages.thenComposeAsync(optionalResult -> {
-            CompletableFuture<Boolean> resultFuture = new CompletableFuture<>();
-            if(!optionalResult.isPresent()) {
-                resultFuture.complete(false);
+        // First Process the message
+        CompletableFuture<Optional<ReceiveMessageResult>> futureMessagesCopy = futureMessages.thenComposeAsync(optionalResult -> {
+            CompletableFuture<Optional<ReceiveMessageResult>> resultFuture = new CompletableFuture<>();
+            if (!optionalResult.isPresent()) {
+                resultFuture.complete(optionalResult);
                 return resultFuture;
             }
             ReceiveMessageResult messageResult = optionalResult.get();
-
-            return resultFuture;
+            return messageProcessor
+                    .getMessageProcessingFuture(messageResult.getMessages())
+                    .thenComposeAsync(voidObject -> {
+                        resultFuture.complete(optionalResult);
+                        return resultFuture;
+                    });
         });
 
+        messageDeleter.deleteMessages(futureMessagesCopy);
         return null;
     }
 
@@ -61,7 +73,11 @@ public class QueueProcessor implements Callable<CompletableFuture<Boolean>> {
 
             @Override
             public void onSuccess(ReceiveMessageRequest request, ReceiveMessageResult result) {
-                future.complete(Optional.of(result));
+                if(result.getMessages().isEmpty()) {
+                    future.complete(Optional.empty());
+                } else {
+                    future.complete(Optional.of(result));
+                }
             }
         };
     }
