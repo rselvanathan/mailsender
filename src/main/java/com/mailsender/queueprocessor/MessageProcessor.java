@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 @Component
 public class MessageProcessor {
@@ -20,18 +21,24 @@ public class MessageProcessor {
 
     private final JSONMapper jsonMapper;
 
+    private final ExecutorService executorService;
+
     @Autowired
-    public MessageProcessor(MailSenderServiceProducer service, JSONMapper jsonMapper) {
+    public MessageProcessor(MailSenderServiceProducer service, JSONMapper jsonMapper, ExecutorService executorService) {
         mailSenderServiceFactory = service;
         this.jsonMapper = jsonMapper;
+        this.executorService = executorService;
     }
 
-    CompletableFuture<Void> getMessageProcessingFuture(List<Message> messages) {
+    CompletableFuture<Void> processMessagesAsync(List<Message> messages) {
         List<CompletableFuture<Void>> completableFutures = new ArrayList<>();
         messages.forEach(message -> {
             AppType appType = AppType.valueOf(message.getMessageAttributes().get("apptype").getStringValue());
             EmailMessage emailMessage = getMessage(message.getBody(), appType);
-            completableFutures.add(CompletableFuture.runAsync(() -> mailSenderServiceFactory.getMailSenderService(appType).sendMail(emailMessage)));
+            completableFutures.add(
+                CompletableFuture.runAsync(
+                    () -> mailSenderServiceFactory.getMailSenderService(appType).sendMail(emailMessage),
+                    executorService));
         });
         if(completableFutures.isEmpty()) {
             return CompletableFuture.completedFuture(null);

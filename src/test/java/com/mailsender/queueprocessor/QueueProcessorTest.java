@@ -2,12 +2,14 @@ package com.mailsender.queueprocessor;
 
 import com.amazonaws.handlers.AsyncHandler;
 import com.amazonaws.services.sqs.AmazonSQSAsyncClient;
-import com.amazonaws.services.sqs.model.*;
+import com.amazonaws.services.sqs.model.DeleteMessageRequest;
+import com.amazonaws.services.sqs.model.Message;
+import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
+import com.amazonaws.services.sqs.model.ReceiveMessageResult;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -17,6 +19,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
@@ -29,6 +33,8 @@ public class QueueProcessorTest {
 
     private static final String QUEUE_NAME = "QUEUE_NAME";
 
+    private static final ExecutorService executorService = Executors.newSingleThreadExecutor();
+
     @Mock
     private AmazonSQSAsyncClient amazonSQSAsyncClientMock;
 
@@ -38,11 +44,11 @@ public class QueueProcessorTest {
     @Mock
     private MessageDeleter messageDeleterMock;
 
-    @InjectMocks
     private QueueProcessor queueProcessor;
 
     @Before
     public void setup() {
+        queueProcessor = new QueueProcessor(amazonSQSAsyncClientMock, messageProcessorMock, messageDeleterMock, executorService);
         ReflectionTestUtils.setField(queueProcessor, "queueURL", QUEUE_NAME);
     }
 
@@ -53,7 +59,7 @@ public class QueueProcessorTest {
         ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult();
         receiveMessageResult.setMessages(Collections.emptyList());
 
-        queueProcessor.call();
+        queueProcessor.run();
 
         // Argument Captor ordering and verify ordering done on purpose.
         ArgumentCaptor<AsyncHandler> asyncHandlerArgumentCaptor = ArgumentCaptor.forClass(AsyncHandler.class);
@@ -61,7 +67,7 @@ public class QueueProcessorTest {
 
         asyncHandlerArgumentCaptor.getValue().onSuccess(receiveMessageRequest, receiveMessageResult);
 
-        verify(messageProcessorMock, never()).getMessageProcessingFuture(anyList());
+        verify(messageProcessorMock, never()).processMessagesAsync(anyList());
         verify(amazonSQSAsyncClientMock, never()).deleteMessageAsync(any(DeleteMessageRequest.class), any(AsyncHandler.class));
 
         ArgumentCaptor<CompletableFuture> completableFutureArgumentCaptor = ArgumentCaptor.forClass(CompletableFuture.class);
@@ -89,9 +95,9 @@ public class QueueProcessorTest {
 
         CompletableFuture<Void> completableFuture = new CompletableFuture<>();
         completableFuture.complete(null);
-        when(messageProcessorMock.getMessageProcessingFuture(messages)).thenReturn(completableFuture);
+        when(messageProcessorMock.processMessagesAsync(messages)).thenReturn(completableFuture);
 
-        queueProcessor.call();
+        queueProcessor.run();
 
         // Argument Captor ordering and verify ordering done on purpose.
         ArgumentCaptor<AsyncHandler> asyncHandlerArgumentCaptor = ArgumentCaptor.forClass(AsyncHandler.class);
@@ -105,6 +111,6 @@ public class QueueProcessorTest {
         Optional<ReceiveMessageResult> join = (Optional<ReceiveMessageResult>) completableFutureArgumentCaptor.getValue().join();
         assertThat(join.get(), is(receiveMessageResult));
 
-        verify(messageProcessorMock).getMessageProcessingFuture(messages);
+        verify(messageProcessorMock).processMessagesAsync(messages);
     }
 }

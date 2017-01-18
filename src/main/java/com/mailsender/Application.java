@@ -8,10 +8,9 @@ import org.springframework.context.annotation.ComponentScan;
 @SpringBootApplication
 @ComponentScan
 public class Application {
-
     public static void main(String[] args) {
         ConfigurableApplicationContext applicationContext = SpringApplication.run(Application.class, args);
-//        MailSenderService mailSenderService = applicationContext.getBean(MailSenderService.class);
-//        mailSenderService.sendMail();
+//        QueueRunner runner = applicationContext.getBean(QueueRunner.class);
+//        runner.runQueue();
     }
 }

@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 @Component
 public class MessageDeleter {
@@ -23,15 +24,18 @@ public class MessageDeleter {
 
     private final AmazonSQSAsyncClient amazonSQSAsyncClient;
 
+    private final ExecutorService executorService;
+
     @Value("${AWS_SQS_QUEUE_URL}")
     private String queueURL;
 
     @Autowired
-    public MessageDeleter(AmazonSQSAsyncClient amazonSQSAsyncClient) {
+    public MessageDeleter(AmazonSQSAsyncClient amazonSQSAsyncClient, ExecutorService service) {
         this.amazonSQSAsyncClient = amazonSQSAsyncClient;
+        executorService = service;
     }
 
-    public void deleteMessages(CompletableFuture<Optional<ReceiveMessageResult>> completableFuture) {
+    void deleteMessages(CompletableFuture<Optional<ReceiveMessageResult>> completableFuture) {
         completableFuture.thenAccept(optionalResult -> {
             if (optionalResult.isPresent()) {
                 ReceiveMessageResult receiveMessageResult = optionalResult.get();

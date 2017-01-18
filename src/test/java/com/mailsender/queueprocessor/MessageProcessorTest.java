@@ -9,20 +9,21 @@ import com.mailsender.dto.RomCharmEmail;
 import com.mailsender.factories.MailSenderServiceProducer;
 import com.mailsender.mail.RomCharmMailService;
 import com.mailsender.util.JSONMapper;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.*;
@@ -32,7 +33,9 @@ public class MessageProcessorTest {
 
     private static final String APP_TYPE = "ROMCHARM";
 
-    private ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     @Rule
     public ExpectedException expectedException = ExpectedException.none();
@@ -46,13 +49,17 @@ public class MessageProcessorTest {
     @Mock
     private MailSenderServiceProducer mailSenderServiceProducer;
 
-    @InjectMocks
     private MessageProcessor messageProcessor;
+
+    @Before
+    public void setup() {
+        messageProcessor = new MessageProcessor(mailSenderServiceProducer, jsonMapper, executorService);
+    }
 
     @Test
     public void whenReceivingMessagesAndThereAreNoneInTheListDoNothing() {
         List<Message> messages = Collections.emptyList();
-        CompletableFuture<Void> future = messageProcessor.getMessageProcessingFuture(messages);
+        CompletableFuture<Void> future = messageProcessor.processMessagesAsync(messages);
         future.join();
         verify(mailSenderServiceProducer, never()).getMailSenderService(any(AppType.class));
     }
@@ -68,7 +75,7 @@ public class MessageProcessorTest {
         when(mailSenderServiceProducer.getMailSenderService(AppType.ROMCHARM)).thenReturn(romCharmMailServiceMock);
         when(jsonMapper.getObjectFromJSONString(bodyJSON, RomCharmEmail.class)).thenReturn(romCharmEmail);
 
-        CompletableFuture<Void> futures = messageProcessor.getMessageProcessingFuture(messages);
+        CompletableFuture<Void> futures = messageProcessor.processMessagesAsync(messages);
 
         futures.join();
 
@@ -86,7 +93,7 @@ public class MessageProcessorTest {
         when(mailSenderServiceProducer.getMailSenderService(AppType.ROMCHARM)).thenReturn(romCharmMailServiceMock);
         when(jsonMapper.getObjectFromJSONString(bodyJSON, RomCharmEmail.class)).thenReturn(romCharmEmail);
 
-        CompletableFuture<Void> futures = messageProcessor.getMessageProcessingFuture(messages);
+        CompletableFuture<Void> futures = messageProcessor.processMessagesAsync(messages);
 
         futures.join();
 
@@ -102,7 +109,7 @@ public class MessageProcessorTest {
 
         expectedException.expect(IllegalArgumentException.class);
 
-        messageProcessor.getMessageProcessingFuture(messages);
+        messageProcessor.processMessagesAsync(messages);
     }
 
     private Message getDefaultMessage(String bodyJSON, String appValue) {

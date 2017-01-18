@@ -11,11 +11,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 
 @Component
-public class QueueProcessor implements Callable<Void> {
+public class QueueProcessor implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(QueueProcessor.class);
 
     private final AmazonSQSAsyncClient amazonSQSAsyncClient;
@@ -24,18 +24,24 @@ public class QueueProcessor implements Callable<Void> {
 
     private final MessageDeleter messageDeleter;
 
+    private final ExecutorService executorService;
+
     @Value("${AWS_SQS_QUEUE_URL}")
     private String queueURL;
 
     @Autowired
-    public QueueProcessor(AmazonSQSAsyncClient client, MessageProcessor messageProcessor, MessageDeleter messageDeleter) {
+    public QueueProcessor(AmazonSQSAsyncClient client,
+                          MessageProcessor messageProcessor,
+                          MessageDeleter messageDeleter,
+                          ExecutorService service) {
         amazonSQSAsyncClient = client;
         this.messageProcessor = messageProcessor;
         this.messageDeleter = messageDeleter;
+        executorService = service;
     }
 
     @Override
-    public Void call() throws Exception {
+    public void run() {
         ReceiveMessageRequest request = new ReceiveMessageRequest(queueURL);
         request.setMaxNumberOfMessages(5);
         CompletableFuture<Optional<ReceiveMessageResult>> futureMessages = new CompletableFuture<>();
@@ -50,16 +56,16 @@ public class QueueProcessor implements Callable<Void> {
                 return resultFuture;
             }
             ReceiveMessageResult messageResult = optionalResult.get();
+            // Once finished re-return the messages for deletion process
             return messageProcessor
-                    .getMessageProcessingFuture(messageResult.getMessages())
+                    .processMessagesAsync(messageResult.getMessages())
                     .thenComposeAsync(voidObject -> {
                         resultFuture.complete(optionalResult);
                         return resultFuture;
-                    });
-        });
+                    }, executorService);
+        }, executorService);
 
         messageDeleter.deleteMessages(futureMessagesCopy);
-        return null;
     }
 
     private AsyncHandler<ReceiveMessageRequest, ReceiveMessageResult> asyncMessagesReceiveHandler(
