@@ -1,5 +1,6 @@
 package com.mailsender.util;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mailsender.util.exceptions.JSONMapperException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,5 +23,17 @@ public class JSONMapper {
         } catch (IOException e) {
             throw new JSONMapperException(e);
         }
+    }
+
+    public JsonNode getJsonNode(String json) {
+        try {
+            return objectMapper.readTree(json);
+        } catch (IOException e) {
+            throw new JSONMapperException(e);
+        }
+    }
+
+    public <T>T convertValue(Object from, Class<T> to) {
+        return objectMapper.convertValue(from, to);
     }
 }

@@ -9,6 +9,7 @@ import com.amazonaws.services.sqs.model.ReceiveMessageResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -30,7 +31,8 @@ public class MessageDeleter {
     private String queueURL;
 
     @Autowired
-    public MessageDeleter(AmazonSQSAsyncClient amazonSQSAsyncClient, ExecutorService service) {
+    public MessageDeleter(AmazonSQSAsyncClient amazonSQSAsyncClient,
+                          @Qualifier("fixedThreadPool") ExecutorService service) {
         this.amazonSQSAsyncClient = amazonSQSAsyncClient;
         executorService = service;
     }
@@ -38,6 +40,7 @@ public class MessageDeleter {
     void deleteMessages(CompletableFuture<Optional<ReceiveMessageResult>> completableFuture) {
         completableFuture.thenAccept(optionalResult -> {
             if (optionalResult.isPresent()) {
+                logger.info("Deleting messages");
                 ReceiveMessageResult receiveMessageResult = optionalResult.get();
                 List<CompletableFuture<DeleteMessageResult>> deleteFutures = new ArrayList<>(receiveMessageResult.getMessages().size());
                 receiveMessageResult.getMessages().forEach(message -> {

@@ -3,6 +3,7 @@ package com.mailsender.queueprocessor;
 import com.amazonaws.services.sqs.model.Message;
 import com.amazonaws.services.sqs.model.MessageAttributeValue;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mailsender.defaults.AppType;
 import com.mailsender.dto.RomCharmEmail;
@@ -17,10 +18,8 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
+import java.io.IOException;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -41,9 +40,6 @@ public class MessageProcessorTest {
     public ExpectedException expectedException = ExpectedException.none();
 
     @Mock
-    private JSONMapper jsonMapper;
-
-    @Mock
     private RomCharmMailService romCharmMailServiceMock;
 
     @Mock
@@ -53,6 +49,7 @@ public class MessageProcessorTest {
 
     @Before
     public void setup() {
+        JSONMapper jsonMapper = new JSONMapper(objectMapper);
         messageProcessor = new MessageProcessor(mailSenderServiceProducer, jsonMapper, executorService);
     }
 
@@ -65,15 +62,15 @@ public class MessageProcessorTest {
     }
 
     @Test
-    public void whenMessageListHasOneMessageThenOnlyCallMailSenderProducerOnce() throws JsonProcessingException {
-        RomCharmEmail romCharmEmail = getDefaultEmail();
-        String bodyJSON = getDefaultBodyJSON(romCharmEmail);
-        Message message = getDefaultMessage(bodyJSON, APP_TYPE);
+    public void whenMessageListHasOneMessageThenOnlyCallMailSenderProducerOnce() throws IOException {
+        String value = "{\"Message\":{\"email\":\"romesh1305@googlemail.com\",\"firstName\":\"Romesh\",\"lastName\":\"Selvanathan\",\"areAttending\":true,\"numberAttending\":1},\"MessageAttributes\":{\"apptype\":{\"Type\":\"String\",\"Value\":\"ROMCHARM\"}}}";
 
-        List<Message> messages = Collections.singletonList(message);
+        JsonNode jsonNode = objectMapper.readTree(value);
+        RomCharmEmail romCharmEmail = objectMapper.convertValue(jsonNode.get("Message"), RomCharmEmail.class);
+
+        List<Message> messages = Collections.singletonList(new Message().withBody(value));
 
         when(mailSenderServiceProducer.getMailSenderService(AppType.ROMCHARM)).thenReturn(romCharmMailServiceMock);
-        when(jsonMapper.getObjectFromJSONString(bodyJSON, RomCharmEmail.class)).thenReturn(romCharmEmail);
 
         CompletableFuture<Void> futures = messageProcessor.processMessagesAsync(messages);
 
@@ -83,15 +80,17 @@ public class MessageProcessorTest {
     }
 
     @Test
-    public void whenMessageListHasTwoMessagesThenOnlyCallMailSenderProducerTwice() throws JsonProcessingException {
-        RomCharmEmail romCharmEmail = getDefaultEmail();
-        String bodyJSON = getDefaultBodyJSON(romCharmEmail);
-        Message message = getDefaultMessage(bodyJSON, APP_TYPE);
+    public void whenMessageListHasTwoMessagesThenOnlyCallMailSenderProducerTwice() throws IOException {
+        String value = "{\"Message\":{\"email\":\"romesh1305@googlemail.com\",\"firstName\":\"Romesh\",\"lastName\":\"Selvanathan\",\"areAttending\":true,\"numberAttending\":1},\"MessageAttributes\":{\"apptype\":{\"Type\":\"String\",\"Value\":\"ROMCHARM\"}}}";
+
+        JsonNode jsonNode = objectMapper.readTree(value);
+        RomCharmEmail romCharmEmail = objectMapper.convertValue(jsonNode.get("Message"), RomCharmEmail.class);
+
+        Message message = new Message().withBody(value);
 
         List<Message> messages = Arrays.asList(message, message);
 
         when(mailSenderServiceProducer.getMailSenderService(AppType.ROMCHARM)).thenReturn(romCharmMailServiceMock);
-        when(jsonMapper.getObjectFromJSONString(bodyJSON, RomCharmEmail.class)).thenReturn(romCharmEmail);
 
         CompletableFuture<Void> futures = messageProcessor.processMessagesAsync(messages);
 
@@ -102,31 +101,13 @@ public class MessageProcessorTest {
 
     @Test
     public void whenObjectContainsDataNotExpectedThrowIllegalArguementException() throws JsonProcessingException {
-        RomCharmEmail romCharmEmail = getDefaultEmail();
-        String bodyJSON = getDefaultBodyJSON(romCharmEmail);
-        Message message = getDefaultMessage(bodyJSON, "random");
+        String value = "{\"Message\":{\"email\":\"romesh1305@googlemail.com\",\"firstName\":\"Romesh\",\"lastName\":\"Selvanathan\",\"areAttending\":true,\"numberAttending\":1},\"MessageAttributes\":{\"apptype\":{\"Type\":\"String\",\"Value\":\"DEFAULT\"}}}";
+
+        Message message = new Message().withBody(value);
         List<Message> messages = Arrays.asList(message, message);
 
         expectedException.expect(IllegalArgumentException.class);
 
         messageProcessor.processMessagesAsync(messages);
-    }
-
-    private Message getDefaultMessage(String bodyJSON, String appValue) {
-        Message message = new Message();
-        HashMap<String, MessageAttributeValue> messageAttributes = new HashMap<>();
-        messageAttributes.put("apptype", new MessageAttributeValue().withStringValue(appValue));
-        message.setMessageAttributes(messageAttributes);
-
-        message.setBody(bodyJSON);
-        return message;
-    }
-
-    private String getDefaultBodyJSON(Object romCharmEmail) throws JsonProcessingException {
-        return objectMapper.writeValueAsString(romCharmEmail);
-    }
-
-    private RomCharmEmail getDefaultEmail() {
-        return new RomCharmEmail("email", "first", "last", true, 5);
     }
 }

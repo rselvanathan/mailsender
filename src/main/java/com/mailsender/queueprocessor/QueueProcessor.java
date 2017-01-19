@@ -7,6 +7,7 @@ import com.amazonaws.services.sqs.model.ReceiveMessageResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -33,7 +34,7 @@ public class QueueProcessor implements Runnable {
     public QueueProcessor(AmazonSQSAsyncClient client,
                           MessageProcessor messageProcessor,
                           MessageDeleter messageDeleter,
-                          ExecutorService service) {
+                          @Qualifier("fixedThreadPool") ExecutorService service) {
         amazonSQSAsyncClient = client;
         this.messageProcessor = messageProcessor;
         this.messageDeleter = messageDeleter;

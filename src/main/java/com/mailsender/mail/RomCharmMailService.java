@@ -2,10 +2,13 @@ package com.mailsender.mail;
 
 import com.mailsender.dto.EmailMessage;
 import com.mailsender.dto.RomCharmEmail;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 
 public class RomCharmMailService implements MailSenderService{
+    private static final Logger logger = LoggerFactory.getLogger(RomCharmMailService.class);
 
     private final MailSender mailSender;
 
@@ -39,6 +42,7 @@ public class RomCharmMailService implements MailSenderService{
 
         mailMessage.setText(builder.toString());
 
+        logger.info("Sending mail to " + romCharmEmail.getEmail());
         mailSender.send(mailMessage);
     }
 
