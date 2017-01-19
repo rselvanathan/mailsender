@@ -41,6 +41,7 @@ public class MessageProcessor {
 
     CompletableFuture<Void> processMessagesAsync(List<Message> messages) {
         List<CompletableFuture<Void>> completableFutures = new ArrayList<>();
+        logger.info(String.format("Processing %s of messages", messages.size()));
         messages.forEach(message -> {
             JsonNode jsonNode = jsonMapper.getJsonNode(message.getBody());
             AppType appType = AppType.valueOf(getAppTypeString(jsonNode));

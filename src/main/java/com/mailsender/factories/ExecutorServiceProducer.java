@@ -20,6 +20,6 @@ public class ExecutorServiceProducer {
     @Bean
     @Qualifier("fixedThreadPool")
     public ExecutorService fixedThreadPool() {
-        return Executors.newFixedThreadPool(8);
+        return Executors.newFixedThreadPool(3);
     }
 }
