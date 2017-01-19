@@ -42,21 +42,21 @@ public class MessageProcessor {
     CompletableFuture<Void> processMessagesAsync(List<Message> messages) {
         List<CompletableFuture<Void>> completableFutures = new ArrayList<>();
         logger.info(String.format("Processing %s of messages", messages.size()));
-        messages.forEach(message -> {
-            JsonNode jsonNode = jsonMapper.getJsonNode(message.getBody());
-            AppType appType = AppType.valueOf(getAppTypeString(jsonNode));
-            String messageBody = getMessageBody(jsonNode);
-            EmailMessage emailMessage = getMessage(messageBody, appType);
-            logger.info("Processing message : " + messageBody);
-            completableFutures.add(
-                CompletableFuture.runAsync(
-                    () -> mailSenderServiceFactory.getMailSenderService(appType).sendMail(emailMessage),
-                    executorService));
-        });
+        messages.forEach(message -> addMailSendTask(completableFutures, message));
         if(completableFutures.isEmpty()) {
             return CompletableFuture.completedFuture(null);
         }
         return CompletableFuture.allOf(completableFutures.toArray(new CompletableFuture<?>[completableFutures.size()]));
+    }
+
+    private void addMailSendTask(List<CompletableFuture<Void>> completableFutures, Message message) {
+        JsonNode jsonNode = jsonMapper.getJsonNode(message.getBody());
+        AppType appType = AppType.valueOf(getAppTypeString(jsonNode));
+        String messageBody = jsonNode.get("Message").textValue();
+        EmailMessage emailMessage = getMessage(messageBody, appType);
+        logger.info("Processing message : " + messageBody);
+        completableFutures.add(CompletableFuture.runAsync(() -> mailSenderServiceFactory.getMailSenderService(appType).sendMail(emailMessage),
+                executorService));
     }
 
     private EmailMessage getMessage(String messageBody, AppType appType) {
@@ -70,9 +70,5 @@ public class MessageProcessor {
     private String getAppTypeString(JsonNode messageBodyNode) {
         Map<String, LinkedHashMap<String, String>> map = jsonMapper.convertValue(messageBodyNode.get("MessageAttributes"), Map.class);
         return map.get("apptype").get("Value");
-    }
-
-    private String getMessageBody(JsonNode messageBodyNode) {
-        return messageBodyNode.get("Message").textValue();
     }
 }

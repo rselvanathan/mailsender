@@ -49,21 +49,22 @@ public class QueueProcessor implements Runnable {
 
         amazonSQSAsyncClient.receiveMessageAsync(request, asyncMessagesReceiveHandler(futureMessages));
 
-        // First Process the message
         CompletableFuture<Optional<ReceiveMessageResult>> futureMessagesCopy = futureMessages.thenComposeAsync(optionalResult -> {
+
             CompletableFuture<Optional<ReceiveMessageResult>> resultFuture = new CompletableFuture<>();
+            // First Process the message
             if (!optionalResult.isPresent()) {
                 resultFuture.complete(optionalResult);
                 return resultFuture;
             }
             ReceiveMessageResult messageResult = optionalResult.get();
+            CompletableFuture<Void> messageProcessFuture = messageProcessor.processMessagesAsync(messageResult.getMessages());
             // Once finished re-return the messages for deletion process
-            return messageProcessor
-                    .processMessagesAsync(messageResult.getMessages())
-                    .thenComposeAsync(voidObject -> {
+            return messageProcessFuture.thenComposeAsync(voidObject -> {
                         resultFuture.complete(optionalResult);
                         return resultFuture;
                     }, executorService);
+
         }, executorService);
 
         messageDeleter.deleteMessages(futureMessagesCopy);

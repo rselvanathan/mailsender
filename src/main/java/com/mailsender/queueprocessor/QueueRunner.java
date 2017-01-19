@@ -20,6 +20,6 @@ public class QueueRunner {
     }
 
     public void runQueue() {
-        executorService.scheduleWithFixedDelay(processor, 1,30, TimeUnit.SECONDS);
+        executorService.scheduleWithFixedDelay(processor, 1,45, TimeUnit.SECONDS);
     }
 }
