@@ -16,6 +16,7 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import java.io.IOException;
@@ -63,10 +64,13 @@ public class MessageProcessorTest {
 
     @Test
     public void whenMessageListHasOneMessageThenOnlyCallMailSenderProducerOnce() throws IOException {
-        String value = "{\"Message\":{\"email\":\"romesh1305@googlemail.com\",\"firstName\":\"Romesh\",\"lastName\":\"Selvanathan\",\"areAttending\":true,\"numberAttending\":1},\"MessageAttributes\":{\"apptype\":{\"Type\":\"String\",\"Value\":\"ROMCHARM\"}}}";
-
-        JsonNode jsonNode = objectMapper.readTree(value);
-        RomCharmEmail romCharmEmail = objectMapper.convertValue(jsonNode.get("Message"), RomCharmEmail.class);
+        String value = "{\"Message\":\"{\\\"email\\\":\\\"romesh1305@googlemail.com\\\",\\\"firstName\\\":\\\"Romesh\\\",\\\"lastName\\\":\\\"Selvanathan\\\",\\\"areAttending\\\":true,\\\"numberAttending\\\":1}\",\"MessageAttributes\":{\"apptype\":{\"Type\":\"String\",\"Value\":\"ROMCHARM\"}}}";
+        String second = "{\"email\":\"romesh1305@googlemail.com\",\"firstName\":\"Romesh\",\"lastName\":\"Selvanathan\",\"areAttending\":true,\"numberAttending\":1}";
+        JsonNode jsonNode = Mockito.mock(JsonNode.class);
+        JsonNode jsonNodeInner = Mockito.mock(JsonNode.class);
+        when(jsonNode.get("Message")).thenReturn(jsonNodeInner);
+        when(jsonNodeInner.asText()).thenReturn(second);
+        RomCharmEmail romCharmEmail = objectMapper.readValue(second, RomCharmEmail.class);
 
         List<Message> messages = Collections.singletonList(new Message().withBody(value));
 
@@ -81,10 +85,13 @@ public class MessageProcessorTest {
 
     @Test
     public void whenMessageListHasTwoMessagesThenOnlyCallMailSenderProducerTwice() throws IOException {
-        String value = "{\"Message\":{\"email\":\"romesh1305@googlemail.com\",\"firstName\":\"Romesh\",\"lastName\":\"Selvanathan\",\"areAttending\":true,\"numberAttending\":1},\"MessageAttributes\":{\"apptype\":{\"Type\":\"String\",\"Value\":\"ROMCHARM\"}}}";
-
-        JsonNode jsonNode = objectMapper.readTree(value);
-        RomCharmEmail romCharmEmail = objectMapper.convertValue(jsonNode.get("Message"), RomCharmEmail.class);
+        String value = "{\"Message\":\"{\\\"email\\\":\\\"romesh1305@googlemail.com\\\",\\\"firstName\\\":\\\"Romesh\\\",\\\"lastName\\\":\\\"Selvanathan\\\",\\\"areAttending\\\":true,\\\"numberAttending\\\":1}\",\"MessageAttributes\":{\"apptype\":{\"Type\":\"String\",\"Value\":\"ROMCHARM\"}}}";
+        String second = "{\"email\":\"romesh1305@googlemail.com\",\"firstName\":\"Romesh\",\"lastName\":\"Selvanathan\",\"areAttending\":true,\"numberAttending\":1}";
+        JsonNode jsonNode = Mockito.mock(JsonNode.class);
+        JsonNode jsonNodeInner = Mockito.mock(JsonNode.class);
+        when(jsonNode.get("Message")).thenReturn(jsonNodeInner);
+        when(jsonNodeInner.asText()).thenReturn(second);
+        RomCharmEmail romCharmEmail = objectMapper.readValue(second, RomCharmEmail.class);
 
         Message message = new Message().withBody(value);
 
