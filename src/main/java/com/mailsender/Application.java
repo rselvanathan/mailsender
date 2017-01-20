@@ -1,6 +1,6 @@
 package com.mailsender;
 
-import com.mailsender.mail.MailSenderService;
+import com.mailsender.queueprocessor.QueueRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -12,7 +12,7 @@ public class Application {
 
     public static void main(String[] args) {
         ConfigurableApplicationContext applicationContext = SpringApplication.run(Application.class, args);
-//        MailSenderService mailSenderService = applicationContext.getBean(MailSenderService.class);
-//        mailSenderService.sendMail();
+        QueueRunner runner = applicationContext.getBean(QueueRunner.class);
+        runner.runQueue();
     }
 }
