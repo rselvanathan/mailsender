@@ -50,18 +50,18 @@ public class QueueProcessor implements Runnable {
     @Override
     public void run() {
         ReceiveMessageRequest request = new ReceiveMessageRequest(queueURL);
-        request.setMaxNumberOfMessages(5);
-        CompletableFuture<Optional<ReceiveMessageResult>> futureMessages = new CompletableFuture<>();
+        request.setMaxNumberOfMessages(3);
+        CompletableFuture<Optional<ReceiveMessageResult>> receiveResultFuture = new CompletableFuture<>();
 
-        amazonSQSAsyncClient.receiveMessageAsync(request, asyncMessagesReceiveHandler(futureMessages));
+        amazonSQSAsyncClient.receiveMessageAsync(request, asyncReceiveResultHandler(receiveResultFuture));
 
-        CompletableFuture<Optional<ReceiveMessageResult>> futureMessagesCopy = futureMessages.thenComposeAsync(optionalResult -> {
+        CompletableFuture<Optional<ReceiveMessageResult>> receiveResultCopyFuture = receiveResultFuture.thenComposeAsync(optionalResult -> {
 
-            CompletableFuture<Optional<ReceiveMessageResult>> resultFuture = new CompletableFuture<>();
+            CompletableFuture<Optional<ReceiveMessageResult>> optionalCopyResultFuture = new CompletableFuture<>();
             // First Process the message
             if (!optionalResult.isPresent()) {
-                resultFuture.complete(optionalResult);
-                return resultFuture;
+                optionalCopyResultFuture.complete(optionalResult);
+                return optionalCopyResultFuture;
             }
             ReceiveMessageResult messageResult = optionalResult.get();
             CompletableFuture<Void> messageProcessFuture = messageProcessor
@@ -70,13 +70,13 @@ public class QueueProcessor implements Runnable {
             // Once finished re-return the SQS Receive object for deletion process
             return messageProcessFuture
                     // Handle Exception
-                    .handleAsync( handleMessageProcessorAsync(resultFuture, messageResult), executorService)
+                    .handleAsync( handleMessageProcessorAsync(optionalCopyResultFuture, messageResult), executorService)
                     // Transform the future
-                    .thenComposeAsync(voidObject -> resultFuture, executorService);
+                    .thenComposeAsync(voidObject -> optionalCopyResultFuture, executorService);
 
         }, executorService);
 
-        messageDeleter.deleteMessages(futureMessagesCopy);
+        messageDeleter.deleteMessages(receiveResultCopyFuture);
     }
 
     /**
@@ -86,7 +86,7 @@ public class QueueProcessor implements Runnable {
      * @return a filled {@link CompletableFuture} with an {@link Optional} {@link ReceiveMessageResult}. The {@link CompletableFuture}
      * can also complete exceptionally, if an error has occured.
      */
-    private AsyncHandler<ReceiveMessageRequest, ReceiveMessageResult> asyncMessagesReceiveHandler(
+    private AsyncHandler<ReceiveMessageRequest, ReceiveMessageResult> asyncReceiveResultHandler(
         final CompletableFuture<Optional<ReceiveMessageResult>> future) {
         return new AsyncHandler<ReceiveMessageRequest, ReceiveMessageResult>() {
             @Override
