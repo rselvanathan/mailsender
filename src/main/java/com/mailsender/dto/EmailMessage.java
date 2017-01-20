@@ -2,6 +2,10 @@ package com.mailsender.dto;
 
 import java.util.Objects;
 
+/**
+ * The common E-mail message representation. The extending object will customise the E-mail object based on the details
+ * they require to send a message.
+ */
 public abstract class EmailMessage {
     private String email;
 

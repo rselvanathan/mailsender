@@ -11,6 +11,10 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+/**
+ * Will clean up the thread pools once the Application has been stopped. Will listen to the Spring Application context
+ * to kick off the clean up.
+ */
 @Component
 public class ThreadPoolCleaner implements ApplicationListener<ContextClosedEvent> {
 

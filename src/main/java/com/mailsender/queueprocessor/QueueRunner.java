@@ -7,6 +7,9 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Will run the queue processing on a scheduled time delay. This will run continuously until stopped
+ */
 @Component
 public class QueueRunner {
     private final QueueProcessor processor;
@@ -20,6 +23,6 @@ public class QueueRunner {
     }
 
     public void runQueue() {
-        executorService.scheduleWithFixedDelay(processor, 1,45, TimeUnit.SECONDS);
+        executorService.scheduleWithFixedDelay(processor, 1,60, TimeUnit.SECONDS);
     }
 }

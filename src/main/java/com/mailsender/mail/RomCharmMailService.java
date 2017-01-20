@@ -7,6 +7,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
 
+/**
+ * A Mail Sender specific to the "ROMCHARM" Application/Service. This will send an RSVP confirmation mail to the recipient.
+ */
 public class RomCharmMailService implements MailSenderService{
     private static final Logger logger = LoggerFactory.getLogger(RomCharmMailService.class);
 

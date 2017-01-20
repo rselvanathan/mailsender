@@ -14,7 +14,13 @@ import org.springframework.stereotype.Component;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiFunction;
 
+/**
+ * Processor that will grab the messages from a SQS Queue and will try to send the messages to the appropriate e-mail
+ * destination. Once the mail processing has been completed it will then delete the messages from the SQS Queue to
+ * mark them as done.
+ */
 @Component
 public class QueueProcessor implements Runnable {
     private static final Logger logger = LoggerFactory.getLogger(QueueProcessor.class);
@@ -58,25 +64,35 @@ public class QueueProcessor implements Runnable {
                 return resultFuture;
             }
             ReceiveMessageResult messageResult = optionalResult.get();
-            CompletableFuture<Void> messageProcessFuture = messageProcessor.processMessagesAsync(messageResult.getMessages());
-            // Once finished re-return the messages for deletion process
-            return messageProcessFuture.thenComposeAsync(voidObject -> {
-                        resultFuture.complete(optionalResult);
-                        return resultFuture;
-                    }, executorService);
+            CompletableFuture<Void> messageProcessFuture = messageProcessor
+                    .processMessagesAsync(messageResult.getMessages());
+
+            // Once finished re-return the SQS Receive object for deletion process
+            return messageProcessFuture
+                    // Handle Exception
+                    .handleAsync( handleMessageProcessorAsync(resultFuture, messageResult), executorService)
+                    // Transform the future
+                    .thenComposeAsync(voidObject -> resultFuture, executorService);
 
         }, executorService);
 
         messageDeleter.deleteMessages(futureMessagesCopy);
     }
 
+    /**
+     * A asynchronous message receive handler for the SQS call
+     *
+     * @param future An empty completable future to be filled with an {@link Optional} {@link ReceiveMessageResult}
+     * @return a filled {@link CompletableFuture} with an {@link Optional} {@link ReceiveMessageResult}. The {@link CompletableFuture}
+     * can also complete exceptionally, if an error has occured.
+     */
     private AsyncHandler<ReceiveMessageRequest, ReceiveMessageResult> asyncMessagesReceiveHandler(
         final CompletableFuture<Optional<ReceiveMessageResult>> future) {
         return new AsyncHandler<ReceiveMessageRequest, ReceiveMessageResult>() {
             @Override
             public void onError(Exception e) {
                 logger.error("Error when trying to receive messages", e);
-                future.complete(Optional.empty());
+                future.completeExceptionally(e);
             }
 
             @Override
@@ -87,6 +103,27 @@ public class QueueProcessor implements Runnable {
                     future.complete(Optional.of(result));
                 }
             }
+        };
+    }
+
+    /**
+     * An asynchronous exception handler method that will check whether or not an exception has been thrown by the Message Processor Future.
+     * If an exception has been thrown then the provided empty {@link CompletableFuture} will complete exceptionally. Otherwise
+     * a copy of an {@link Optional} {@link ReceiveMessageResult} will be set within the provided empty {@link CompletableFuture}.
+     *
+     * @param resultFuture The empty future to be filled with either the exception or the {@link Optional} {@link ReceiveMessageResult}
+     * @param receiveMessageResult The {@link ReceiveMessageResult} to be added in the empty {@link CompletableFuture}
+     * @return nothing
+     */
+    private BiFunction<? super Void, Throwable, ? extends CompletableFuture<Void>> handleMessageProcessorAsync(CompletableFuture<Optional<ReceiveMessageResult>> resultFuture,
+                                                                                                               ReceiveMessageResult receiveMessageResult) {
+        return (voidMessageProcessorResult, th) -> {
+            if (th != null) {
+                logger.error("An unexpected error has occured", th);
+                resultFuture.completeExceptionally(th);
+            }
+            resultFuture.complete(Optional.of(receiveMessageResult));
+            return null;
         };
     }
 }

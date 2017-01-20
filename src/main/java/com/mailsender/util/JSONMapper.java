@@ -8,6 +8,9 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+/**
+ * A simple wrapper for the {@link ObjectMapper} to return a appropriate RuntimeException instead of a checked exception.
+ */
 @Component
 public class JSONMapper {
     private final ObjectMapper objectMapper;

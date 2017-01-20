@@ -19,6 +19,9 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
+/**
+ * Will delete the retrieved messages from the specified SQS Queue
+ */
 @Component
 public class MessageDeleter {
     private static final Logger logger = LoggerFactory.getLogger(MessageDeleter.class);
@@ -37,6 +40,11 @@ public class MessageDeleter {
         executorService = service;
     }
 
+    /**
+     * Will delete the messages from the retrieved SQS queue if there were any messages. This is part of the asynchronous call and will only run once
+     * the message processing has been completed.
+     * @param completableFuture A {@link CompletableFuture} representing an {@link Optional} {@link ReceiveMessageResult}
+     */
     void deleteMessages(CompletableFuture<Optional<ReceiveMessageResult>> completableFuture) {
         completableFuture.thenAccept(optionalResult -> {
             if (optionalResult.isPresent()) {
@@ -54,6 +62,11 @@ public class MessageDeleter {
         });
     }
 
+    /**
+     * An asynchronous Message delete request handler to SQS
+     * @param deleteFuture An empty {@link CompletableFuture}
+     * @return {@link CompletableFuture} with either an exception or a {@link DeleteMessageResult}
+     */
     private AsyncHandler<DeleteMessageRequest, DeleteMessageResult> asyncMessageDeleteHandler(
             final CompletableFuture<DeleteMessageResult> deleteFuture) {
         return new AsyncHandler<DeleteMessageRequest, DeleteMessageResult>() {

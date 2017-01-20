@@ -7,18 +7,19 @@ import com.amazonaws.services.sqs.model.Message;
 import com.amazonaws.services.sqs.model.ReceiveMessageRequest;
 import com.amazonaws.services.sqs.model.ReceiveMessageResult;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.io.IOException;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -34,6 +35,9 @@ public class QueueProcessorTest {
     private static final String QUEUE_NAME = "QUEUE_NAME";
 
     private static final ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+    @Rule
+    public ExpectedException expectedException = ExpectedException.none();
 
     @Mock
     private AmazonSQSAsyncClient amazonSQSAsyncClientMock;
@@ -68,7 +72,6 @@ public class QueueProcessorTest {
         asyncHandlerArgumentCaptor.getValue().onSuccess(receiveMessageRequest, receiveMessageResult);
 
         verify(messageProcessorMock, never()).processMessagesAsync(anyList());
-        verify(amazonSQSAsyncClientMock, never()).deleteMessageAsync(any(DeleteMessageRequest.class), any(AsyncHandler.class));
 
         ArgumentCaptor<CompletableFuture> completableFutureArgumentCaptor = ArgumentCaptor.forClass(CompletableFuture.class);
         verify(messageDeleterMock).deleteMessages(completableFutureArgumentCaptor.capture());
@@ -112,5 +115,60 @@ public class QueueProcessorTest {
         assertThat(join.get(), is(receiveMessageResult));
 
         verify(messageProcessorMock).processMessagesAsync(messages);
+    }
+
+    @Test
+    public void whenSQSClientThrowsExceptionExpectAnException() throws Exception {
+        ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(QUEUE_NAME).withMaxNumberOfMessages(5);
+
+        ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult();
+        receiveMessageResult.setMessages(Collections.emptyList());
+
+        queueProcessor.run();
+
+        // Argument Captor ordering and verify ordering done on purpose.
+        ArgumentCaptor<AsyncHandler> asyncHandlerArgumentCaptor = ArgumentCaptor.forClass(AsyncHandler.class);
+        verify(amazonSQSAsyncClientMock).receiveMessageAsync(eq(receiveMessageRequest), asyncHandlerArgumentCaptor.capture());
+
+        asyncHandlerArgumentCaptor.getValue().onError(new IllegalArgumentException());
+
+        verify(messageProcessorMock, never()).processMessagesAsync(anyList());
+    }
+
+    @Test
+    public void whenTheMessageProcessorThrowsAnExceptionDuringProcessingExpectTheFutureReturnedToBeCompletedExceptionally() throws Exception {
+        ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(QUEUE_NAME).withMaxNumberOfMessages(5);
+
+        Message messageOne = new Message();
+
+        String messageOneReceipt = "oneReceipt";
+        Throwable causeException = new IOException("Some Mail error");
+
+        messageOne.setReceiptHandle(messageOneReceipt);
+
+        ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult();
+        List<Message> messages = Collections.singletonList(messageOne);
+        receiveMessageResult.setMessages(messages);
+
+        CompletableFuture<Void> completableFuture = new CompletableFuture<>();
+        completableFuture.completeExceptionally(causeException);
+        when(messageProcessorMock.processMessagesAsync(messages)).thenReturn(completableFuture);
+
+        expectedException.expect(ExecutionException.class);
+        expectedException.expectCause(is(causeException));
+
+        queueProcessor.run();
+
+        // Argument Captor ordering and verify ordering done on purpose.
+        ArgumentCaptor<AsyncHandler> asyncHandlerArgumentCaptor = ArgumentCaptor.forClass(AsyncHandler.class);
+        verify(amazonSQSAsyncClientMock).receiveMessageAsync(eq(receiveMessageRequest), asyncHandlerArgumentCaptor.capture());
+
+        asyncHandlerArgumentCaptor.getValue().onSuccess(receiveMessageRequest, receiveMessageResult);
+
+        ArgumentCaptor<CompletableFuture> completableFutureArgumentCaptor = ArgumentCaptor.forClass(CompletableFuture.class);
+        verify(messageDeleterMock).deleteMessages(completableFutureArgumentCaptor.capture());
+
+        CompletableFuture value = completableFutureArgumentCaptor.getValue();
+        value.get();
     }
 }

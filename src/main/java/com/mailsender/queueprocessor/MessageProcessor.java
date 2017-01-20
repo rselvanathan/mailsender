@@ -20,6 +20,10 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
+/**
+ * Will go through a list of SQS Messages and send a mail to the appropriate e-mail addresses.
+ * Each message will contain a raw SNS message body, which this object will go process to retrieve the E-mail details body.
+ */
 @Component
 public class MessageProcessor {
     private static final Logger logger = LoggerFactory.getLogger(MessageProcessor.class);
@@ -39,6 +43,11 @@ public class MessageProcessor {
         this.executorService = executorService;
     }
 
+    /**
+     * Asynchronous message processing function, that will create a separate thread for each message to be sent.
+     * @param messages List of {@link Message}
+     * @return A {@link CompletableFuture} representing the different mailing jobs
+     */
     CompletableFuture<Void> processMessagesAsync(List<Message> messages) {
         List<CompletableFuture<Void>> completableFutures = new ArrayList<>();
         logger.info(String.format("Processing %s of messages", messages.size()));
@@ -49,6 +58,11 @@ public class MessageProcessor {
         return CompletableFuture.allOf(completableFutures.toArray(new CompletableFuture<?>[completableFutures.size()]));
     }
 
+    /**
+     * Generate a Mail task (thread) for a single message.
+     * @param completableFutures List of {@link CompletableFuture}
+     * @param message The {@link Message} containing the E-mail details
+     */
     private void addMailSendTask(List<CompletableFuture<Void>> completableFutures, Message message) {
         JsonNode jsonNode = jsonMapper.getJsonNode(message.getBody());
         AppType appType = AppType.valueOf(getAppTypeString(jsonNode));
@@ -59,6 +73,12 @@ public class MessageProcessor {
                 executorService));
     }
 
+    /**
+     * Get the {@link EmailMessage} from the raw SNS Message body. The {@link EmailMessage} returned will depend on the {@link AppType}
+     * @param messageBody Raw SNS Message Body
+     * @param appType {@link AppType}
+     * @return {@link EmailMessage}
+     */
     private EmailMessage getMessage(String messageBody, AppType appType) {
         if(appType.equals(AppType.ROMCHARM)) {
             return jsonMapper.getObjectFromJSONString(messageBody, RomCharmEmail.class);
@@ -67,6 +87,11 @@ public class MessageProcessor {
         }
     }
 
+    /**
+     * Get the App type string from the Raw {@link JsonNode}
+     * @param messageBodyNode The raw SQS {@link JsonNode}
+     * @return The String representing an Application type
+     */
     private String getAppTypeString(JsonNode messageBodyNode) {
         Map<String, LinkedHashMap<String, String>> map = jsonMapper.convertValue(messageBodyNode.get("MessageAttributes"), Map.class);
         return map.get("apptype").get("Value");

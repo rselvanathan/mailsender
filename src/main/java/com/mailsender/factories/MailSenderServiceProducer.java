@@ -6,6 +6,9 @@ import com.mailsender.mail.RomCharmMailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+/**
+ * A Mail Sender Service producer that will generate a {@link MailSenderService} based on the {@link AppType} provided
+ */
 @Component
 public class MailSenderServiceProducer {
 
