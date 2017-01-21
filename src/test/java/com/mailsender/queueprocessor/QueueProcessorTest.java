@@ -36,6 +36,8 @@ public class QueueProcessorTest {
 
     private static final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
+    private static final int MAX_NUMBER_MESSAGES = 3;
+
     @Rule
     public ExpectedException expectedException = ExpectedException.none();
 
@@ -47,7 +49,6 @@ public class QueueProcessorTest {
 
     @Mock
     private MessageDeleter messageDeleterMock;
-
     private QueueProcessor queueProcessor;
 
     @Before
@@ -58,7 +59,7 @@ public class QueueProcessorTest {
 
     @Test
     public void whenMessageResultsAreEmptyThenDoNotCallAnyProcessingOrDeletionMethods() throws Exception {
-        ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(QUEUE_NAME).withMaxNumberOfMessages(5);
+        ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(QUEUE_NAME).withMaxNumberOfMessages(MAX_NUMBER_MESSAGES);
 
         ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult();
         receiveMessageResult.setMessages(Collections.emptyList());
@@ -82,7 +83,7 @@ public class QueueProcessorTest {
 
     @Test
     public void whenMessageResultsAreNotEmptyCallMessageProcessorAndMessageDeletor() throws Exception {
-        ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(QUEUE_NAME).withMaxNumberOfMessages(5);
+        ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(QUEUE_NAME).withMaxNumberOfMessages(MAX_NUMBER_MESSAGES);
 
         Message messageOne = new Message();
         Message messageTwo = new Message();
@@ -119,7 +120,7 @@ public class QueueProcessorTest {
 
     @Test
     public void whenSQSClientThrowsExceptionExpectAnException() throws Exception {
-        ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(QUEUE_NAME).withMaxNumberOfMessages(5);
+        ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(QUEUE_NAME).withMaxNumberOfMessages(MAX_NUMBER_MESSAGES);
 
         ReceiveMessageResult receiveMessageResult = new ReceiveMessageResult();
         receiveMessageResult.setMessages(Collections.emptyList());
@@ -137,7 +138,7 @@ public class QueueProcessorTest {
 
     @Test
     public void whenTheMessageProcessorThrowsAnExceptionDuringProcessingExpectTheFutureReturnedToBeCompletedExceptionally() throws Exception {
-        ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(QUEUE_NAME).withMaxNumberOfMessages(5);
+        ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(QUEUE_NAME).withMaxNumberOfMessages(MAX_NUMBER_MESSAGES);
 
         Message messageOne = new Message();
 
