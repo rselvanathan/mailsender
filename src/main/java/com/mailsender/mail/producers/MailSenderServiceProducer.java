@@ -1,4 +1,4 @@
-package com.mailsender.factories;
+package com.mailsender.mail.producers;
 
 import com.mailsender.defaults.AppType;
 import com.mailsender.mail.MailSenderService;

@@ -1,4 +1,4 @@
-package com.mailsender.factories;
+package com.mailsender.producers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;

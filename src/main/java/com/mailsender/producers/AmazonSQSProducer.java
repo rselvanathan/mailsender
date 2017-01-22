@@ -1,4 +1,4 @@
-package com.mailsender.factories;
+package com.mailsender.producers;
 
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.regions.Region;

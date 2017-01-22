@@ -1,8 +1,9 @@
-package com.mailsender.factories;
+package com.mailsender.producers;
 
-import com.mailsender.defaults.AppType;
 import com.mailsender.mail.MailSenderService;
 import com.mailsender.mail.RomCharmMailService;
+import com.mailsender.mail.producers.MailSenderProducer;
+import com.mailsender.mail.producers.MailSenderServiceProducer;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;

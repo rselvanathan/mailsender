@@ -4,8 +4,8 @@ import com.amazonaws.services.sqs.model.Message;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.mailsender.defaults.AppType;
 import com.mailsender.dto.EmailMessage;
-import com.mailsender.dto.RomCharmEmail;
-import com.mailsender.factories.MailSenderServiceProducer;
+import com.mailsender.dto.producers.EmailProducer;
+import com.mailsender.mail.producers.MailSenderServiceProducer;
 import com.mailsender.util.JSONMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,13 +34,16 @@ public class MessageProcessor {
 
     private final ExecutorService executorService;
 
+    private final EmailProducer emailProducer;
+
     @Autowired
     public MessageProcessor(MailSenderServiceProducer service,
                             JSONMapper jsonMapper,
-                            @Qualifier("fixedThreadPool") ExecutorService executorService) {
+                            @Qualifier("fixedThreadPool") ExecutorService executorService, EmailProducer emailProducer) {
         mailSenderServiceFactory = service;
         this.jsonMapper = jsonMapper;
         this.executorService = executorService;
+        this.emailProducer = emailProducer;
     }
 
     /**
@@ -66,25 +69,11 @@ public class MessageProcessor {
     private void addMailSendTask(List<CompletableFuture<Void>> completableFutures, Message message) {
         JsonNode jsonNode = jsonMapper.getJsonNode(message.getBody());
         AppType appType = AppType.valueOf(getAppTypeString(jsonNode));
-        String messageBody = jsonNode.get("Message").textValue();
-        EmailMessage emailMessage = getMessage(messageBody, appType);
-        logger.info("Processing message : " + messageBody);
+        String jsonMessageBody = jsonNode.get("Message").textValue();
+        EmailMessage emailMessage = emailProducer.getEmailMessage(appType, jsonMessageBody);
+        logger.info("Processing message : " + jsonMessageBody);
         completableFutures.add(CompletableFuture.runAsync(() -> mailSenderServiceFactory.getMailSenderService(appType).sendMail(emailMessage),
                 executorService));
-    }
-
-    /**
-     * Get the {@link EmailMessage} from the raw SNS Message body. The {@link EmailMessage} returned will depend on the {@link AppType}
-     * @param messageBody Raw SNS Message Body
-     * @param appType {@link AppType}
-     * @return {@link EmailMessage}
-     */
-    private EmailMessage getMessage(String messageBody, AppType appType) {
-        if(appType.equals(AppType.ROMCHARM)) {
-            return jsonMapper.getObjectFromJSONString(messageBody, RomCharmEmail.class);
-        } else {
-            throw new IllegalArgumentException("The App type has not been recognised");
-        }
     }
 
     /**

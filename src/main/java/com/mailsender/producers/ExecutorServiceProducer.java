@@ -1,4 +1,4 @@
-package com.mailsender.factories;
+package com.mailsender.producers;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
