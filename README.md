@@ -9,11 +9,13 @@ The AWS SQS is polled at a given interval. The application itself is asynchronou
 at the same time. The thread pool can be controlled at application start up, so based on the number of messages this, can be 
 increased or decreased per user preference.
 
+This app has been replaced by the Scala version in production : https://github.com/rselvanathan/mailsender-scala
+
 Tech Used : AWS SQS, Docker, Java 8, Spring Boot
 
 #### Docker Usage
 
-The application is currently deployed and used as a docker image. To run the docker simply run the following command :
+The application was deployed and used as a docker image (Before being replaced by Scala version). To run the docker image simply run the following command :
 
 ```bash
 docker run -d --name mailsender \
